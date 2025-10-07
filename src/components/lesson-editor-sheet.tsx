@@ -24,7 +24,7 @@ interface LessonEditorSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lesson: Lesson;
-  onUpdate: (data: Partial<Lesson>) => void;
+  onUpdate: (data: Partial<Omit<Lesson, 'records'>>) => void;
 }
 
 const lessonTypeLabels: Record<LessonType, string> = {
@@ -49,7 +49,7 @@ export function LessonEditorSheet({ open, onOpenChange, lesson, onUpdate }: Less
   }, [lesson]);
 
   const handleSave = () => {
-    const dataToUpdate: Partial<Lesson> = { topic, homework, lessonType };
+    const dataToUpdate: Partial<Omit<Lesson, 'records'>> = { topic, homework, lessonType };
     if (lessonType !== 'classwork') {
       dataToUpdate.maxScore = maxScore;
     } else {
