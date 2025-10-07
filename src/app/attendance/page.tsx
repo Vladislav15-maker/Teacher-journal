@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -36,25 +36,30 @@ export default function AttendancePage() {
   useEffect(() => {
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
-      const data = await getClasses();
-      setClasses(data);
-      if (data.length > 0 && !selectedClassId) {
-        setSelectedClassId(data[0].id);
+      try {
+        const data = await getClasses();
+        setClasses(data);
+        if (data.length > 0 && !selectedClassId) {
+          setSelectedClassId(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch classes:", error);
+      } finally {
+        setIsLoadingClasses(false);
       }
-      setIsLoadingClasses(false);
     };
     fetchClasses();
   }, []);
 
-  useEffect(() => {
+  const fetchClassData = useCallback(async () => {
     if (!selectedClassId) return;
 
-    const fetchClassData = async () => {
-      setIsLoadingData(true);
-      
-      const startDate = startOfMonth(currentDate);
-      const endDate = endOfMonth(currentDate);
+    setIsLoadingData(true);
+    
+    const startDate = startOfMonth(currentDate);
+    const endDate = endOfMonth(currentDate);
 
+    try {
       const [studentsData, lessonsData] = await Promise.all([
         getStudents(selectedClassId),
         getLessonsForClass(
@@ -66,11 +71,18 @@ export default function AttendancePage() {
       
       setStudents(studentsData);
       setLessons(lessonsData);
-      setIsLoadingData(false);
-    };
-
-    fetchClassData();
+    } catch (error) {
+        console.error("Failed to fetch class data:", error);
+        setStudents([]);
+        setLessons([]);
+    } finally {
+        setIsLoadingData(false);
+    }
   }, [selectedClassId, currentDate]);
+
+  useEffect(() => {
+    fetchClassData();
+  }, [fetchClassData]);
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
     setCurrentDate(prev => {
@@ -91,8 +103,10 @@ export default function AttendancePage() {
       excused: 0
     }));
 
+    let totalRecords = 0;
     lessons.forEach(lesson => {
       (lesson.records || []).forEach(record => {
+        totalRecords++;
         if (record.attendance in overall) {
             overall[record.attendance as AttendanceKey]++;
         }
@@ -113,7 +127,7 @@ export default function AttendancePage() {
       { name: 'По ув. причине', value: overall.excused, fill: COLORS.excused },
     ].filter(item => item.value > 0);
 
-    return { overall: overallChartData, byStudent };
+    return { overall: overallChartData, byStudent, hasData: totalRecords > 0 };
   }, [lessons, students]);
   
   const isLoading = isLoadingClasses || isLoadingData;
@@ -162,7 +176,7 @@ export default function AttendancePage() {
               <Skeleton className="h-96 w-full" />
               <Skeleton className="h-96 w-full" />
           </div>
-      ) : lessons && lessons.length > 0 ? (
+      ) : attendanceData.hasData ? (
         <div className="grid md:grid-cols-2 gap-6">
             <Card>
             <CardHeader>

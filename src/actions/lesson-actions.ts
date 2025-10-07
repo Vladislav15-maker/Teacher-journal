@@ -3,20 +3,27 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import type { Lesson as LessonWithRecords, Lesson as PrismaLesson, LessonRecord } from "@/lib/types";
+import type { Lesson as LessonWithRecords, Prisma, Lesson as PrismaLesson, LessonRecord } from "@prisma/client";
+import type { Lesson } from "@/lib/types";
 
-// Helper function to combine lessons with their records
-async function getLessonsWithRecords(lessons: PrismaLesson[]): Promise<LessonWithRecords[]> {
+// This is a more robust way to handle fetching lessons with their records.
+async function getLessonsWithRecords(where: Prisma.LessonWhereInput): Promise<Lesson[]> {
+    const lessons = await db.lesson.findMany({
+        where,
+        orderBy: {
+            date: 'asc'
+        }
+    });
+
     const lessonIds = lessons.map(l => l.id);
     if (lessonIds.length === 0) {
         return lessons.map(lesson => ({ ...lesson, records: [] }));
     }
+
     const records = await db.lessonRecord.findMany({
         where: {
-            lessonId: {
-                in: lessonIds,
-            },
-        },
+            lessonId: { in: lessonIds }
+        }
     });
 
     const recordsByLessonId = new Map<string, LessonRecord[]>();
@@ -29,10 +36,9 @@ async function getLessonsWithRecords(lessons: PrismaLesson[]): Promise<LessonWit
 
     return lessons.map(lesson => ({
         ...lesson,
-        records: recordsByLessonId.get(lesson.id) || [],
+        records: recordsByLessonId.get(lesson.id) || []
     }));
 }
-
 
 export async function getLessonsForSubject(subjectId: string, startDate?: string, endDate?: string) {
     const session = await auth();
@@ -40,7 +46,7 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
         throw new Error("Unauthorized");
     }
 
-    const whereClause: any = {
+    const whereClause: Prisma.LessonWhereInput = {
         subjectId,
         subject: {
             classroom: {
@@ -55,15 +61,8 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
             lte: new Date(endDate)
         };
     }
-
-    const lessons = await db.lesson.findMany({
-        where: whereClause,
-        orderBy: {
-            date: 'asc'
-        }
-    });
-
-    return getLessonsWithRecords(lessons);
+    
+    return getLessonsWithRecords(whereClause);
 }
 
 export async function getLessonsForClass(classId: string, startDate?: string, endDate?: string) {
@@ -72,7 +71,7 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
         throw new Error("Unauthorized");
     }
 
-    const whereClause: any = {
+    const whereClause: Prisma.LessonWhereInput = {
         classId,
         classroom: {
             teacherId: session.user.id
@@ -85,19 +84,12 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
             lte: new Date(endDate)
         };
     }
-
-    const lessons = await db.lesson.findMany({
-        where: whereClause,
-        orderBy: {
-            date: 'asc'
-        }
-    });
     
-    return getLessonsWithRecords(lessons);
+    return getLessonsWithRecords(whereClause);
 }
 
 
-export async function createLesson(data: { date: string, subjectId: string, classId: string }) {
+export async function createLesson(data: { date: string, subjectId: string, classId: string }): Promise<Lesson> {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
@@ -107,7 +99,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     
     const newLesson = await db.lesson.create({
         data: {
-            date: new Date(data.date), // Prisma handles Date object correctly for DateTime fields
+            date: new Date(data.date),
             topic: 'Новая тема',
             homework: '',
             subjectId: data.subjectId,
@@ -131,13 +123,16 @@ export async function createLesson(data: { date: string, subjectId: string, clas
         });
     }
         
-    const createdLesson = await db.lesson.findUnique({ where: { id: newLesson.id }});
-    if (!createdLesson) throw new Error("Could not find created lesson");
+    const createdLessonsWithRecords = await getLessonsWithRecords({ id: newLesson.id });
 
-    return (await getLessonsWithRecords([createdLesson]))[0];
+    if (createdLessonsWithRecords.length === 0) {
+        throw new Error("Could not find created lesson with records");
+    }
+
+    return createdLessonsWithRecords[0];
 }
 
-export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id' | 'records'>> & { records?: Partial<LessonRecord>[] }) {
+export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id'>> & { records?: Partial<LessonRecord>[] }): Promise<Lesson> {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
@@ -162,12 +157,15 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
     if (Object.keys(lessonData).length > 0) {
         await db.lesson.update({
             where: { id },
-            data: lessonData as any, // Cast to any to avoid type issues with prisma relations
+            data: lessonData,
         });
     }
 
-    const updatedLesson = await db.lesson.findUnique({ where: { id } });
-    if (!updatedLesson) throw new Error("Could not find updated lesson");
+    const updatedLessonsWithRecords = await getLessonsWithRecords({ id });
+    
+    if (updatedLessonsWithRecords.length === 0) {
+        throw new Error("Could not find updated lesson with records");
+    }
 
-    return (await getLessonsWithRecords([updatedLesson]))[0];
+    return updatedLessonsWithRecords[0];
 }

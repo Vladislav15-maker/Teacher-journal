@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Student, Lesson, Subject, LessonRecord } from '@/lib/types';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -73,13 +73,15 @@ export function Gradebook({
     });
   };
 
-  const handleHeaderClick = async (date: Date) => {
-    if (!selectedSubject || !selectedClassId) return;
-    
-    const dayOfWeek = getDay(date) === 0 ? 7 : getDay(date);
-    const lessonDays = selectedSubject.lessonDays || [];
+  const handleHeaderClick = useCallback(async (date: Date) => {
+    if (!selectedSubjectId || !selectedClassId) return;
 
-    if (!lessonDays.includes(dayOfWeek)) {
+    const dayOfWeek = getDay(date);
+    const lessonDays = selectedSubject?.lessonDays || [];
+    // Adjust for Sunday being 0 from getDay()
+    const mappedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+    
+    if (!lessonDays.includes(mappedDayOfWeek)) {
         return; 
     }
 
@@ -88,31 +90,42 @@ export function Gradebook({
 
     if (!lesson) {
         if (students.length > 0) {
-            const newLesson = await createLesson({
-                date: date.toISOString(),
-                subjectId: selectedSubject.id,
-                classId: selectedClassId,
-            });
-            onLessonsChange([...(lessons || []), newLesson]);
-            lesson = newLesson;
+            try {
+                const newLesson = await createLesson({
+                    date: date.toISOString(),
+                    subjectId: selectedSubjectId,
+                    classId: selectedClassId,
+                });
+                onLessonsChange([...(lessons || []), newLesson]);
+                lesson = newLesson;
+            } catch (error) {
+                console.error("Failed to create lesson:", error);
+                return;
+            }
         } else {
             return;
         }
     }
     
-    setSelectedLesson(lesson);
-    setIsSheetOpen(true);
-  };
+    if (lesson) {
+        setSelectedLesson(lesson);
+        setIsSheetOpen(true);
+    }
+  }, [selectedSubjectId, selectedClassId, selectedSubject, lessonsByDate, students, lessons, onLessonsChange]);
   
-  const handleLessonUpdate = async (lesson: Lesson, data: Partial<Lesson>) => {
+  const handleLessonUpdate = useCallback(async (lesson: Lesson, data: Partial<Lesson>) => {
     if (!selectedSubjectId) return;
-    const updatedLesson = await updateLesson(lesson.id, data);
-    const newLessons = (lessons || []).map(l => l.id === lesson.id ? updatedLesson : l);
-    onLessonsChange(newLessons);
-    setSelectedLesson(updatedLesson);
-  };
+    try {
+        const updatedLesson = await updateLesson(lesson.id, data);
+        const newLessons = (lessons || []).map(l => l.id === lesson.id ? updatedLesson : l);
+        onLessonsChange(newLessons);
+        setSelectedLesson(updatedLesson);
+    } catch (error) {
+        console.error("Failed to update lesson:", error);
+    }
+  }, [selectedSubjectId, lessons, onLessonsChange]);
   
-  const handleRecordUpdate = async (lessonId: string, studentId: string, newRecordData: Partial<LessonRecord>) => {
+  const handleRecordUpdate = useCallback(async (lessonId: string, studentId: string, newRecordData: Partial<LessonRecord>) => {
       const lessonToUpdate = (lessons || []).find(l => l.id === lessonId);
       if (!lessonToUpdate || !selectedSubjectId) return;
       
@@ -120,19 +133,27 @@ export function Gradebook({
         r.studentId === studentId ? { ...r, ...newRecordData } : r
       );
       
-      const updatedLesson = await updateLesson(lessonId, { records: updatedRecords as any });
-      const newLessons = (lessons || []).map(l => l.id === lessonId ? updatedLesson : l);
-      onLessonsChange(newLessons);
-  };
+      try {
+        const updatedLesson = await updateLesson(lessonId, { records: updatedRecords as any });
+        const newLessons = (lessons || []).map(l => l.id === lessonId ? updatedLesson : l);
+        onLessonsChange(newLessons);
+      } catch (error) {
+          console.error("Failed to update record:", error);
+      }
+  }, [lessons, selectedSubjectId, onLessonsChange]);
   
   useEffect(() => {
-    if (selectedLesson) {
-        const updatedLesson = (lessons || []).find(l => l.id === selectedLesson.id);
+    if (isSheetOpen && selectedLesson) {
+        const updatedLesson = lessons.find(l => l.id === selectedLesson.id);
         if (updatedLesson) {
             setSelectedLesson(updatedLesson);
+        } else {
+            // Lesson was deleted or is no longer available, so close the sheet
+            setIsSheetOpen(false);
+            setSelectedLesson(null);
         }
     }
-  }, [lessons, selectedLesson]);
+  }, [lessons, selectedLesson, isSheetOpen]);
 
   if (!selectedSubjectId || !selectedSubject) {
     return (

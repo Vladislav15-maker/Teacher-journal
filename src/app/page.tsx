@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Gradebook } from '@/components/gradebook';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Class, Subject, Student, Lesson } from '@/lib/types';
@@ -14,7 +14,7 @@ import { startOfMonth, endOfMonth } from 'date-fns';
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  const [classes, setClasses] = useState<Omit<Class, 'students'>[]>([]);
+  const [classes, setClasses] = useState<Omit<Class, 'students' | 'subjects'>[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -30,70 +30,85 @@ export default function Home() {
   useEffect(() => {
     async function fetchClasses() {
       setIsLoading(true);
-      const fetchedClasses = await getClasses();
-      setClasses(fetchedClasses);
-      if (fetchedClasses.length > 0 && !selectedClassId) {
-        setSelectedClassId(fetchedClasses[0].id);
+      try {
+        const fetchedClasses = await getClasses();
+        setClasses(fetchedClasses);
+        if (fetchedClasses.length > 0 && !selectedClassId) {
+          setSelectedClassId(fetchedClasses[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch classes:", error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
     fetchClasses();
   }, []);
 
   useEffect(() => {
+    if (!selectedClassId) {
+      setSubjects([]);
+      setStudents([]);
+      setSelectedSubjectId(undefined);
+      return;
+    };
+    
     async function fetchSubjectsAndStudents() {
-      if (!selectedClassId) {
-        setSubjects([]);
-        setStudents([]);
-        setSelectedSubjectId(undefined);
-        return;
-      };
-      
       setIsLoadingSubjects(true);
       setIsLoadingStudents(true);
-      
-      const [fetchedSubjects, fetchedStudents] = await Promise.all([
-          getSubjects(selectedClassId),
-          getStudents(selectedClassId)
-      ]);
-      
-      setSubjects(fetchedSubjects);
-      setStudents(fetchedStudents);
+      try {
+        const [fetchedSubjects, fetchedStudents] = await Promise.all([
+            getSubjects(selectedClassId),
+            getStudents(selectedClassId)
+        ]);
+        
+        setSubjects(fetchedSubjects);
+        setStudents(fetchedStudents);
 
-      if (fetchedSubjects.length > 0) {
-        setSelectedSubjectId(fetchedSubjects[0].id);
-      } else {
-        setSelectedSubjectId(undefined);
+        if (fetchedSubjects.length > 0) {
+          if (!selectedSubjectId || !fetchedSubjects.some(s => s.id === selectedSubjectId)) {
+            setSelectedSubjectId(fetchedSubjects[0].id);
+          }
+        } else {
+          setSelectedSubjectId(undefined);
+        }
+      } catch (error) {
+          console.error("Failed to fetch subjects or students:", error);
+      } finally {
+        setIsLoadingSubjects(false);
+        setIsLoadingStudents(false);
       }
-
-      setIsLoadingSubjects(false);
-      setIsLoadingStudents(false);
     }
     fetchSubjectsAndStudents();
   }, [selectedClassId]);
   
-  useEffect(() => {
-    async function fetchLessons() {
-        if (!selectedSubjectId) {
+  const fetchLessons = useCallback(async () => {
+      if (!selectedSubjectId) {
+        setLessons([]);
+        return;
+      };
+      setIsLoadingLessons(true);
+      const start = startOfMonth(currentDate);
+      const end = endOfMonth(currentdate);
+      try {
+          const fetchedLessons = await getLessonsForSubject(selectedSubjectId, start.toISOString(), end.toISOString());
+          setLessons(fetchedLessons);
+      } catch (error) {
+          console.error("Failed to fetch lessons:", error);
           setLessons([]);
-          return;
-        };
-        setIsLoadingLessons(true);
-        const start = startOfMonth(currentDate);
-        const end = endOfMonth(currentDate);
-        try {
-            const fetchedLessons = await getLessonsForSubject(selectedSubjectId, start.toISOString(), end.toISOString());
-            setLessons(fetchedLessons);
-        } catch (error) {
-            console.error("Failed to fetch lessons:", error);
-            setLessons([]);
-        } finally {
-            setIsLoadingLessons(false);
-        }
-    }
-    fetchLessons();
+      } finally {
+          setIsLoadingLessons(false);
+      }
   }, [selectedSubjectId, currentDate]);
+
+  useEffect(() => {
+    fetchLessons();
+  }, [fetchLessons]);
   
+  const handleLessonsChange = useCallback((newLessons: Lesson[]) => {
+      setLessons(newLessons);
+  }, []);
+
   const overallLoading = isLoading || isLoadingSubjects || isLoadingStudents;
 
   if (isLoading) {
@@ -162,7 +177,7 @@ export default function Home() {
                 selectedSubjectId={selectedSubjectId}
                 currentDate={currentDate}
                 setCurrentDate={setCurrentDate}
-                onLessonsChange={setLessons}
+                onLessonsChange={handleLessonsChange}
                 isLoadingLessons={isLoadingLessons}
             />
         )}
