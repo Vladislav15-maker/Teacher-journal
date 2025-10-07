@@ -3,7 +3,36 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import type { Lesson } from "@prisma/client";
+import type { Lesson as LessonWithRecords, Lesson as PrismaLesson } from "@/lib/types";
+
+// Helper function to combine lessons with their records
+async function getLessonsWithRecords(lessons: PrismaLesson[]): Promise<LessonWithRecords[]> {
+    const lessonIds = lessons.map(l => l.id);
+    if (lessonIds.length === 0) {
+        return [];
+    }
+    const records = await db.lessonRecord.findMany({
+        where: {
+            lessonId: {
+                in: lessonIds,
+            },
+        },
+    });
+
+    const recordsByLessonId = new Map<string, any[]>();
+    records.forEach(record => {
+        if (!recordsByLessonId.has(record.lessonId)) {
+            recordsByLessonId.set(record.lessonId, []);
+        }
+        recordsByLessonId.get(record.lessonId)!.push(record);
+    });
+
+    return lessons.map(lesson => ({
+        ...lesson,
+        records: recordsByLessonId.get(lesson.id) || [],
+    }));
+}
+
 
 export async function getLessonsForSubject(subjectId: string, startDate?: string, endDate?: string) {
     const session = await auth();
@@ -11,10 +40,10 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
         throw new Error("Unauthorized");
     }
 
-    const whereClause: any = { 
+    const whereClause: any = {
         subjectId,
         subject: {
-            class: {
+            classroom: { // Corrected relation name
                 teacherId: session.user.id
             }
         }
@@ -29,15 +58,12 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
 
     const lessons = await db.lesson.findMany({
         where: whereClause,
-        include: {
-            records: true
-        },
         orderBy: {
             date: 'asc'
         }
     });
 
-    return lessons as any;
+    return getLessonsWithRecords(lessons);
 }
 
 export async function getLessonsForClass(classId: string, startDate?: string, endDate?: string) {
@@ -62,14 +88,12 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
 
     const lessons = await db.lesson.findMany({
         where: whereClause,
-        include: {
-            records: true
-        },
         orderBy: {
             date: 'asc'
         }
     });
-    return lessons as any;
+    
+    return getLessonsWithRecords(lessons);
 }
 
 
@@ -83,7 +107,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     
     const newLesson = await db.lesson.create({
         data: {
-            date: new Date(data.date),
+            date: new Date(data.date), // Prisma handles Date object correctly for DateTime fields
             topic: 'Новая тема',
             homework: '',
             subjectId: data.subjectId,
@@ -93,62 +117,57 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     });
     
     // Create empty records for all students in the class
-    const lessonRecords = students.map(student => ({
-        lessonId: newLesson.id,
-        studentId: student.id,
-        grade: null,
-        attendance: 'present' as const,
-        comment: null,
-    }));
-    
-    await db.lessonRecord.createMany({
-        data: lessonRecords,
-    });
-    
-    const createdLesson = await db.lesson.findUnique({ where: { id: newLesson.id }, include: { records: true }});
+    if (students.length > 0) {
+        const lessonRecords = students.map(student => ({
+            lessonId: newLesson.id,
+            studentId: student.id,
+            grade: null,
+            attendance: 'present' as const,
+            comment: null,
+        }));
+        
+        await db.lessonRecord.createMany({
+            data: lessonRecords,
+        });
+    }
+        
+    const createdLesson = await db.lesson.findUnique({ where: { id: newLesson.id }});
+    if (!createdLesson) throw new Error("Could not find created lesson");
 
-    return createdLesson as any;
+    return (await getLessonsWithRecords([createdLesson]))[0];
 }
 
-export async function updateLesson(id: string, data: Partial<Omit<Lesson, 'id'>>) {
+export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id' | 'records'>>) {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
     }
-    
-    const updateData: any = { ...data };
 
-    if (data.records) {
-        // This is a special case to update records, as they are a relation
-        const records = data.records as any[];
-        delete updateData.records; // remove from main data object
-        
-        // Update main lesson data first
-        if(Object.keys(updateData).length > 0) {
-            await db.lesson.update({
-                where: { id },
-                data: updateData,
-            });
-        }
-        
-        // Then update/create records
+    const { records, ...lessonData } = data as any;
+    
+    // If there are records to update
+    if (records && Array.isArray(records)) {
         for (const record of records) {
             const { id: recordId, ...recordData } = record;
             if (recordId) {
                 await db.lessonRecord.update({
                     where: { id: recordId },
                     data: recordData
-                })
+                });
             }
         }
-        const updatedLesson = await db.lesson.findUnique({ where: { id }, include: { records: true }});
-        return updatedLesson as any;
+    }
+    
+    // If there's other lesson data to update
+    if (Object.keys(lessonData).length > 0) {
+        await db.lesson.update({
+            where: { id },
+            data: lessonData,
+        });
     }
 
-    const updatedLesson = await db.lesson.update({
-        where: { id },
-        data: updateData,
-    });
-    const lessonWithRecords = await db.lesson.findUnique({ where: { id }, include: { records: true }});
-    return lessonWithRecords as any;
+    const updatedLesson = await db.lesson.findUnique({ where: { id } });
+    if (!updatedLesson) throw new Error("Could not find updated lesson");
+
+    return (await getLessonsWithRecords([updatedLesson]))[0];
 }
