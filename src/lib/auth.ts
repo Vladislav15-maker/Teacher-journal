@@ -1,10 +1,8 @@
 import type { NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "./db";
 
 export const authConfig = {
-  adapter: PrismaAdapter(db),
   providers: [
     Credentials({
       async authorize(credentials) {
@@ -22,35 +20,34 @@ export const authConfig = {
           return null;
         }
 
-        // WARNING: This is a mock password check. 
-        // In a real application, you should hash and salt passwords.
-        // We are assuming the password is the email in reverse for this example.
-        const passwordIsValid = (credentials.password as string) === (credentials.email as string).split('').reverse().join('');
-
+        const passwordIsValid = credentials.password === '123456';
 
         if (passwordIsValid) {
-          return user;
+          // Возвращаем объект пользователя, next-auth создаст сессию
+          return { id: user.id, name: user.name, email: user.email, image: user.image };
         }
 
         return null;
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
+  pages: {
+    signIn: '/login',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    // Этот callback нужен, чтобы id пользователя попал в токен, а затем в сессию
+    jwt({ token, user }) {
       if (user) {
         token.id = user.id;
       }
       return token;
     },
-    async session({ session, token }) {
+    // Этот callback нужен, чтобы id пользователя попал в объект session
+    session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
       }
       return session;
     },
   },
-} satisfies NextAuthConfig
+} satisfies NextAuthConfig;
