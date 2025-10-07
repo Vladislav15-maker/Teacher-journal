@@ -424,7 +424,17 @@ const daysOfWeek = [
 function SubjectDialog({ mode, onSave, subject, children }: { mode: 'add' | 'edit', onSave: (data: any) => void, subject?: Subject, children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(subject?.name || '');
-    const [lessonDays, setLessonDays] = useState<number[]>(subject?.lessonDays || [2,4,6]);
+    const [lessonDays, setLessonDays] = useState<number[]>(subject?.lessonDays || []);
+
+    useEffect(() => {
+        if (mode === 'add') {
+            setName('');
+            setLessonDays([]);
+        } else {
+            setName(subject?.name || '');
+            setLessonDays(subject?.lessonDays || []);
+        }
+    }, [open, mode, subject]);
 
     const title = mode === 'add' ? 'Добавить предмет' : 'Редактировать предмет';
 
@@ -432,10 +442,6 @@ function SubjectDialog({ mode, onSave, subject, children }: { mode: 'add' | 'edi
         if (name.trim()) {
             onSave({ name, lessonDays });
             setOpen(false);
-            if (mode === 'add') {
-                setName('');
-                setLessonDays([2,4,6]);
-            }
         }
     };
     
