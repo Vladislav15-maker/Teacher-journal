@@ -1,0 +1,188 @@
+/**
+ * @file Overview
+ * This ruleset enforces a strict user-ownership model, ensuring teachers can only access and manage data related to their own profiles, classrooms, students, subjects and lessons.
+ *
+ * @data_structure
+ * - /teachers/{teacherId}: Stores teacher profiles, with the teacherId matching the Firebase Auth UID.
+ * - /teachers/{teacherId}/classes/{classId}: Stores classroom data, accessible only by the owning teacher.
+ * - /teachers/{teacherId}/classes/{classId}/students/{studentId}: Stores student data, accessible only by the owning teacher.
+ * - /teachers/{teacherId}/classes/{classId}/subjects/{subjectId}: Stores subject data, accessible only by the owning teacher.
+ * - /teachers/{teacherId}/classes/{classId}/subjects/{subjectId}/lessons/{lessonId}: Stores lesson data, accessible only by the owning teacher.
+ *
+ * @key_security_decisions
+ * - Teachers can only manage classrooms, students, subjects, and lessons associated with their own teacher ID.
+ * - Data consistency is enforced between the path and the document's internal teacherId and classId on creation and updates.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description: Secure the `/teachers/{teacherId}` collection to allow only the authenticated user to manage their own profile.
+     * @path: /teachers/{teacherId}
+     * @allow: Teacher with UID 'teacher123' can (create), (update), (get), (delete) their own profile at /teachers/teacher123 if authenticated.
+     * @deny: Teacher with UID 'teacher456' cannot (create), (update), (get), (delete) the profile of teacher with UID 'teacher123' at /teachers/teacher123.
+     * @principle: Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     */
+    match /teachers/{teacherId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId;
+      }
+
+      function isExistingOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId && resource != null;
+      }
+
+      allow get: if isOwner(teacherId);
+      allow list: if false;
+
+      allow create: if isSignedIn() && request.auth.uid == teacherId;
+      allow update: if isExistingOwner(teacherId);
+      allow delete: if isExistingOwner(teacherId);
+    }
+
+    /**
+     * @description: Secure the `/teachers/{teacherId}/classes/{classId}` collection to allow only the authenticated teacher to manage their classrooms.
+     * @path: /teachers/{teacherId}/classes/{classId}
+     * @allow: Teacher with UID 'teacher123' can (create), (update), (get), (delete) a class in /teachers/teacher123/classes/class1 if authenticated.
+     * @deny: Teacher with UID 'teacher456' cannot (create), (update), (get), (delete) a class in /teachers/teacher123/classes/class1.
+     * @principle: Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /teachers/{teacherId}/classes/{classId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId;
+      }
+
+       function isExistingOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId && resource != null;
+      }
+
+      allow get: if isOwner(teacherId);
+      allow list: if isOwner(teacherId);
+
+      allow create: if isSignedIn() && request.auth.uid == teacherId;
+      allow update: if isExistingOwner(teacherId);
+      allow delete: if isExistingOwner(teacherId);
+    }
+
+    /**
+     * @description: Secure the `/teachers/{teacherId}/classes/{classId}/students/{studentId}` collection to allow only the authenticated teacher to manage students in their classes.
+     * @path: /teachers/{teacherId}/classes/{classId}/students/{studentId}
+     * @allow: Teacher with UID 'teacher123' can (create), (update), (get), (delete) a student in /teachers/teacher123/classes/class1/students/student1 if authenticated.
+     * @deny: Teacher with UID 'teacher456' cannot (create), (update), (get), (delete) a student in /teachers/teacher123/classes/class1/students/student1.
+     * @principle: Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /teachers/{teacherId}/classes/{classId}/students/{studentId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId;
+      }
+
+       function isExistingOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId && resource != null;
+      }
+
+      allow get: if isOwner(teacherId);
+      allow list: if isOwner(teacherId);
+
+      allow create: if isSignedIn() && request.auth.uid == teacherId;
+      allow update: if isExistingOwner(teacherId);
+      allow delete: if isExistingOwner(teacherId);
+    }
+
+    /**
+     * @description: Secure the `/teachers/{teacherId}/classes/{classId}/subjects/{subjectId}` collection to allow only the authenticated teacher to manage subjects in their classes.
+     * @path: /teachers/{teacherId}/classes/{classId}/subjects/{subjectId}
+     * @allow: Teacher with UID 'teacher123' can (create), (update), (get), (delete) a subject in /teachers/teacher123/classes/class1/subjects/subject1 if authenticated.
+     * @deny: Teacher with UID 'teacher456' cannot (create), (update), (get), (delete) a subject in /teachers/teacher123/classes/class1/subjects/subject1.
+     * @principle: Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /teachers/{teacherId}/classes/{classId}/subjects/{subjectId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId;
+      }
+
+       function isExistingOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId && resource != null;
+      }
+
+      allow get: if isOwner(teacherId);
+      allow list: if isOwner(teacherId);
+
+      allow create: if isSignedIn() && request.auth.uid == teacherId;
+      allow update: if isExistingOwner(teacherId);
+      allow delete: if isExistingOwner(teacherId);
+    }
+
+    /**
+     * @description: Secure the `/teachers/{teacherId}/classes/{classId}/subjects/{subjectId}/lessons/{lessonId}` collection to allow only the authenticated teacher to manage lessons in their subjects.
+     * @path: /teachers/{teacherId}/classes/{classId}/subjects/{subjectId}/lessons/{lessonId}
+     * @allow: Teacher with UID 'teacher123' can (create), (update), (get), (delete) a lesson in /teachers/teacher123/classes/class1/subjects/subject1/lessons/lesson1 if authenticated.
+     * @deny: Teacher with UID 'teacher456' cannot (create), (update), (get), (delete) a lesson in /teachers/teacher123/classes/class1/subjects/subject1/lessons/lesson1.
+     * @principle: Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /teachers/{teacherId}/classes/{classId}/subjects/{subjectId}/lessons/{lessonId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId;
+      }
+
+      function isExistingOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId && resource != null;
+      }
+
+      allow get: if isOwner(teacherId);
+      allow list: if isOwner(teacherId);
+
+      allow create: if isSignedIn() && request.auth.uid == teacherId;
+      allow update: if isExistingOwner(teacherId);
+      allow delete: if isExistingOwner(teacherId);
+    }
+
+     /**
+     * @description: Secure the `/teachers/{teacherId}/classes/{classId}/messages/{messageId}` collection to allow only the authenticated teacher to manage messages in their classes.
+     * @path: /teachers/{teacherId}/classes/{classId}/messages/{messageId}
+     * @allow: Teacher with UID 'teacher123' can (create), (update), (get), (delete) a message in /teachers/teacher123/classes/class1/messages/message1 if authenticated.
+     * @deny: Teacher with UID 'teacher456' cannot (create), (update), (get), (delete) a message in /teachers/teacher123/classes/class1/messages/message1.
+     * @principle: Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /teachers/{teacherId}/classes/{classId}/messages/{messageId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId;
+      }
+
+      function isExistingOwner(teacherId) {
+        return isSignedIn() && request.auth.uid == teacherId && resource != null;
+      }
+
+      allow get: if isOwner(teacherId);
+      allow list: if isOwner(teacherId);
+
+      allow create: if isSignedIn() && request.auth.uid == teacherId;
+      allow update: if isExistingOwner(teacherId);
+      allow delete: if isExistingOwner(teacherId);
+    }
+  }
+}

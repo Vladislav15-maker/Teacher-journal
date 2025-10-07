@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "student-1",
+      "description": "Avatar for student 1",
+      "imageUrl": "https://images.unsplash.com/photo-1574660430686-b2a255cfce68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdHVkZW50JTIwYXZhdGFyfGVufDB8fHx8MTc1OTc1MTE4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student avatar"
+    },
+    {
+      "id": "student-2",
+      "description": "Avatar for student 2",
+      "imageUrl": "https://images.unsplash.com/photo-1698356253803-838dceb68946?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxzdHVkZW50JTIwYXZhdGFyfGVufDB8fHx8MTc1OTc1MTE4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student avatar"
+    },
+    {
+      "id": "student-3",
+      "description": "Avatar for student 3",
+      "imageUrl": "https://images.unsplash.com/photo-1574660430686-b2a255cfce68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdHVkZW50JTIwYXZhdGFyfGVufDB8fHx8MTc1OTc1MTE4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student avatar"
+    },
+    {
+      "id": "student-4",
+      "description": "Avatar for student 4",
+      "imageUrl": "https://images.unsplash.com/photo-1574660430686-b2a255cfce68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdHVkZW50JTIwYXZhdGFyfGVufDB8fHx8MTc1OTc1MTE4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student avatar"
+    },
+    {
+      "id": "student-5",
+      "description": "Avatar for student 5",
+      "imageUrl": "https://images.unsplash.com/photo-1646415753793-dcfda1dfeee3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwYXZhdGFyfGVufDB8fHx8MTc1OTc1MTE4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student avatar"
+    },
+    {
+      "id": "student-6",
+      "description": "Avatar for student 6",
+      "imageUrl": "https://images.unsplash.com/photo-1614492898637-435e0f87cef8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxzdHVkZW50JTIwYXZhdGFyfGVufDB8fHx8MTc1OTc1MTE4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student avatar"
+    }
+  ]
+}
