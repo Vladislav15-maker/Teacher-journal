@@ -38,10 +38,12 @@ export async function createStudent(classroomId: string, data: Omit<Student, 'id
   if (!classroom) {
       throw new Error("Class not found or unauthorized");
   }
+  
+  const { records, ...studentData } = data as any;
 
   return await db.student.create({
     data: {
-      ...data,
+      ...studentData,
       classroomId,
     },
   });
@@ -53,9 +55,11 @@ export async function updateStudent(id: string, data: Partial<Omit<Student, 'id'
         throw new Error("Unauthorized");
     }
 
+    const { records, ...studentData } = data as any;
+
     return await db.student.update({
         where: { id },
-        data,
+        data: studentData,
     });
 }
 

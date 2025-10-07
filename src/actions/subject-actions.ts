@@ -14,7 +14,7 @@ export async function getSubjects(classId: string) {
   return await db.subject.findMany({
     where: {
       classId,
-      class: {
+      classroom: {
           teacherId: session.user.id
       }
     },

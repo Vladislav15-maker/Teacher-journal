@@ -22,8 +22,8 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
 
     if (startDate && endDate) {
         whereClause.date = {
-            gte: new Date(startDate).toISOString(),
-            lte: new Date(endDate).toISOString()
+            gte: new Date(startDate),
+            lte: new Date(endDate)
         };
     }
 
@@ -48,15 +48,15 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
 
     const whereClause: any = {
         classId,
-        class: {
+        classroom: {
             teacherId: session.user.id
         }
     };
 
     if (startDate && endDate) {
         whereClause.date = {
-            gte: new Date(startDate).toISOString(),
-            lte: new Date(endDate).toISOString()
+            gte: new Date(startDate),
+            lte: new Date(endDate)
         };
     }
 
@@ -83,7 +83,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     
     const newLesson = await db.lesson.create({
         data: {
-            date: data.date,
+            date: new Date(data.date),
             topic: 'Новая тема',
             homework: '',
             subjectId: data.subjectId,
@@ -115,17 +115,19 @@ export async function updateLesson(id: string, data: Partial<Omit<Lesson, 'id'>>
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
     }
+    
+    const updateData: any = { ...data };
 
     if (data.records) {
         // This is a special case to update records, as they are a relation
         const records = data.records as any[];
-        delete data.records; // remove from main data object
+        delete updateData.records; // remove from main data object
         
         // Update main lesson data first
-        if(Object.keys(data).length > 0) {
+        if(Object.keys(updateData).length > 0) {
             await db.lesson.update({
                 where: { id },
-                data: data,
+                data: updateData,
             });
         }
         
@@ -145,7 +147,7 @@ export async function updateLesson(id: string, data: Partial<Omit<Lesson, 'id'>>
 
     const updatedLesson = await db.lesson.update({
         where: { id },
-        data,
+        data: updateData,
     });
     const lessonWithRecords = await db.lesson.findUnique({ where: { id }, include: { records: true }});
     return lessonWithRecords as any;
