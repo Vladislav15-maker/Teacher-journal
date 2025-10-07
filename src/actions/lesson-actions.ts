@@ -3,13 +3,13 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import type { Lesson as LessonWithRecords, Lesson as PrismaLesson } from "@/lib/types";
+import type { Lesson as LessonWithRecords, Lesson as PrismaLesson, LessonRecord } from "@/lib/types";
 
 // Helper function to combine lessons with their records
 async function getLessonsWithRecords(lessons: PrismaLesson[]): Promise<LessonWithRecords[]> {
     const lessonIds = lessons.map(l => l.id);
     if (lessonIds.length === 0) {
-        return [];
+        return lessons.map(lesson => ({ ...lesson, records: [] }));
     }
     const records = await db.lessonRecord.findMany({
         where: {
@@ -19,7 +19,7 @@ async function getLessonsWithRecords(lessons: PrismaLesson[]): Promise<LessonWit
         },
     });
 
-    const recordsByLessonId = new Map<string, any[]>();
+    const recordsByLessonId = new Map<string, LessonRecord[]>();
     records.forEach(record => {
         if (!recordsByLessonId.has(record.lessonId)) {
             recordsByLessonId.set(record.lessonId, []);
@@ -43,7 +43,7 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
     const whereClause: any = {
         subjectId,
         subject: {
-            classroom: { // Corrected relation name
+            classroom: {
                 teacherId: session.user.id
             }
         }
@@ -137,19 +137,19 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     return (await getLessonsWithRecords([createdLesson]))[0];
 }
 
-export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id' | 'records'>>) {
+export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id' | 'records'>> & { records?: Partial<LessonRecord>[] }) {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
     }
 
-    const { records, ...lessonData } = data as any;
+    const { records, ...lessonData } = data;
     
     // If there are records to update
     if (records && Array.isArray(records)) {
         for (const record of records) {
-            const { id: recordId, ...recordData } = record;
-            if (recordId) {
+            if (record.id) {
+                const { id: recordId, ...recordData } = record;
                 await db.lessonRecord.update({
                     where: { id: recordId },
                     data: recordData
@@ -162,7 +162,7 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
     if (Object.keys(lessonData).length > 0) {
         await db.lesson.update({
             where: { id },
-            data: lessonData,
+            data: lessonData as any, // Cast to any to avoid type issues with prisma relations
         });
     }
 

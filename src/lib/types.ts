@@ -16,7 +16,7 @@ export type ClassWithRelations = PrismaClass & {
 
 export type Subject = PrismaSubject;
 
-export type Lesson = Omit<PrismaLesson, 'records'> & {
+export type Lesson = PrismaLesson & {
     records: LessonRecord[];
 };
 
