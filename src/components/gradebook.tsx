@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Student, Lesson, Subject, LessonRecord } from '@/lib/types';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { LessonEditorSheet } from './lesson-editor-sheet';
 import { createLesson, updateLesson } from '@/actions/lesson-actions';
 import { Card, CardContent } from './ui/card';
 import { Skeleton } from './ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 interface GradebookProps {
   students: Student[];
@@ -48,6 +49,7 @@ export function Gradebook({
 }: GradebookProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const { toast } = useToast();
 
   const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
 
@@ -89,38 +91,39 @@ export function Gradebook({
 
     if (!lesson) {
         if (students.length === 0) {
-            console.log("No students in class, cannot create lesson.");
+            toast({ variant: 'destructive', title: "Ошибка", description: "В классе нет учеников, невозможно создать урок." });
             return;
         }
         try {
-            console.log("Creating lesson for", date.toISOString());
             const newLesson = await createLesson({
                 date: date.toISOString(),
                 subjectId: selectedSubjectId,
                 classId: selectedClassId,
             });
-            onLessonsChange([...lessons, newLesson]);
+            onLessonsChange([...(lessons || []), newLesson]);
             setSelectedLesson(newLesson);
             setIsSheetOpen(true);
         } catch (error) {
             console.error("Failed to create lesson:", error);
+            toast({ variant: 'destructive', title: "Ошибка создания урока", description: "Не удалось создать новый урок." });
         }
     } else {
         setSelectedLesson(lesson);
         setIsSheetOpen(true);
     }
-  }, [selectedSubjectId, selectedClassId, selectedSubject, lessonsByDate, students, lessons, onLessonsChange]);
+  }, [selectedSubjectId, selectedClassId, selectedSubject, lessonsByDate, students, lessons, onLessonsChange, toast]);
   
   const handleLessonUpdate = useCallback(async (lesson: Lesson, data: Partial<Omit<Lesson, 'records'>>) => {
     try {
         const updatedLessonWithRecords = await updateLesson(lesson.id, data);
         const newLessons = (lessons || []).map(l => l.id === lesson.id ? updatedLessonWithRecords : l);
         onLessonsChange(newLessons);
-        setSelectedLesson(updatedLessonWithRecords);
+        setSelectedLesson(updatedLessonWithRecords); // Keep sheet updated
     } catch (error) {
         console.error("Failed to update lesson:", error);
+        toast({ variant: 'destructive', title: "Ошибка обновления", description: "Не удалось сохранить изменения урока." });
     }
-  }, [lessons, onLessonsChange]);
+  }, [lessons, onLessonsChange, toast]);
   
   const handleRecordUpdate = useCallback(async (lessonId: string, studentId: string, newRecordData: Partial<LessonRecord>) => {
       const lessonToUpdate = (lessons || []).find(l => l.id === lessonId);
@@ -136,20 +139,18 @@ export function Gradebook({
         onLessonsChange(newLessons);
       } catch (error) {
           console.error("Failed to update record:", error);
+          toast({ variant: 'destructive', title: "Ошибка сохранения", description: "Не удалось сохранить оценку." });
       }
-  }, [lessons, onLessonsChange]);
+  }, [lessons, onLessonsChange, toast]);
   
+  // This effect ensures that the data in the sheet is always fresh
+  // if the underlying lesson data changes while the sheet is open.
+  const currentlySelectedLesson = lessons.find(l => l.id === selectedLesson?.id);
   useEffect(() => {
-    if (isSheetOpen && selectedLesson) {
-        const updatedLesson = lessons.find(l => l.id === selectedLesson.id);
-        if (updatedLesson) {
-            setSelectedLesson(updatedLesson);
-        } else {
-            setIsSheetOpen(false);
-            setSelectedLesson(null);
-        }
+    if (isSheetOpen && currentlySelectedLesson) {
+        setSelectedLesson(currentlySelectedLesson);
     }
-  }, [lessons, selectedLesson, isSheetOpen]);
+  }, [isSheetOpen, currentlySelectedLesson]);
 
   if (!selectedSubjectId || !selectedSubject) {
     return (
@@ -272,7 +273,7 @@ export function Gradebook({
                                         </div>
                                     </RecordEditorPopover>
                                 ) : (
-                                    <div className="h-16"></div>
+                                    <div className="h-full min-h-[58px]"></div>
                                 )}
                             </TableCell>
                         );
@@ -294,5 +295,3 @@ export function Gradebook({
     </Card>
   );
 }
-
-    

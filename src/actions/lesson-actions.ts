@@ -3,7 +3,7 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import type { Lesson as LessonWithRecords, Prisma, Lesson as PrismaLesson, LessonRecord } from "@prisma/client";
+import type { Prisma, Lesson as PrismaLesson, LessonRecord } from "@prisma/client";
 import type { Lesson } from "@/lib/types";
 
 // This is a more robust way to handle fetching lessons with their records.
@@ -140,25 +140,41 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
 
     const { records, ...lessonData } = data;
     
-    // If there are records to update
+    // Transaction to ensure data integrity
+    const transactionOperations = [];
+
+    // If there's other lesson data to update, add it to the transaction
+    if (Object.keys(lessonData).length > 0) {
+        transactionOperations.push(
+            db.lesson.update({
+                where: { id },
+                data: lessonData,
+            })
+        );
+    }
+    
+    // If there are records to update, add them to the transaction
     if (records && Array.isArray(records)) {
         for (const record of records) {
             if (record.id) {
                 const { id: recordId, ...recordData } = record;
-                await db.lessonRecord.update({
-                    where: { id: recordId },
-                    data: recordData
-                });
+                 // Ensure grade is number or null, not an empty string
+                if (recordData.grade === '') {
+                    recordData.grade = null;
+                }
+                transactionOperations.push(
+                    db.lessonRecord.update({
+                        where: { id: recordId },
+                        data: recordData
+                    })
+                );
             }
         }
     }
     
-    // If there's other lesson data to update
-    if (Object.keys(lessonData).length > 0) {
-        await db.lesson.update({
-            where: { id },
-            data: lessonData,
-        });
+    // Execute all updates in a single transaction
+    if (transactionOperations.length > 0) {
+        await db.$transaction(transactionOperations);
     }
 
     const updatedLessonsWithRecords = await getLessonsWithRecords({ id });
