@@ -89,7 +89,7 @@ export default function Home() {
       };
       setIsLoadingLessons(true);
       const start = startOfMonth(currentDate);
-      const end = endOfMonth(currentdate);
+      const end = endOfMonth(currentDate);
       try {
           const fetchedLessons = await getLessonsForSubject(selectedSubjectId, start.toISOString(), end.toISOString());
           setLessons(fetchedLessons);
