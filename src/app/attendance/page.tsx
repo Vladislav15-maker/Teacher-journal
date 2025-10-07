@@ -25,7 +25,7 @@ type AttendanceKey = keyof typeof COLORS;
 
 export default function AttendancePage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [classes, setClasses] = useState<Omit<Class, 'students'>[]>([]);
+  const [classes, setClasses] = useState<Omit<Class, 'students' | 'subjects'>[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -52,12 +52,15 @@ export default function AttendancePage() {
     const fetchClassData = async () => {
       setIsLoadingData(true);
       
+      const startDate = startOfMonth(currentDate);
+      const endDate = endOfMonth(currentDate);
+
       const [studentsData, lessonsData] = await Promise.all([
         getStudents(selectedClassId),
         getLessonsForClass(
             selectedClassId, 
-            startOfMonth(currentDate).toISOString(), 
-            endOfMonth(currentDate).toISOString()
+            startDate.toISOString(), 
+            endDate.toISOString()
         )
       ]);
       

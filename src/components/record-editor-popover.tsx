@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { LessonRecord, Student, AttendanceStatus, Lesson } from "@/lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -25,6 +25,14 @@ export function RecordEditorPopover({ student, lesson, record, onSave, children 
   const [attendance, setAttendance] = useState<AttendanceStatus>(record.attendance);
   const [comment, setComment] = useState(record.comment || '');
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+        setGrade(record.grade?.toString() || '');
+        setAttendance(record.attendance);
+        setComment(record.comment || '');
+    }
+  }, [isOpen, record]);
 
   const handleSave = () => {
     const newGrade = grade ? parseInt(grade, 10) : null;
@@ -70,7 +78,7 @@ export function RecordEditorPopover({ student, lesson, record, onSave, children 
                 onChange={(e) => setGrade(e.target.value)}
                 className="col-span-2 h-8" 
                 min="0" 
-                max={lesson.maxScore || 5}
+                max={lesson.maxScore || undefined}
                 />
             </div>
             <div className="grid grid-cols-3 items-center gap-4">
@@ -115,5 +123,3 @@ export function RecordEditorPopover({ student, lesson, record, onSave, children 
     </Popover>
   );
 }
-
-    

@@ -59,8 +59,8 @@ export function Gradebook({
 
   const lessonsByDate = useMemo(() => {
     const map = new Map<string, Lesson>();
-    lessons.forEach(lesson => {
-      map.set(lesson.date, lesson);
+    (lessons || []).forEach(lesson => {
+      map.set(format(new Date(lesson.date), 'yyyy-MM-dd'), lesson);
     });
     return map;
   }, [lessons]);
@@ -83,17 +83,17 @@ export function Gradebook({
         return; 
     }
 
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = format(date, 'yyyy-MM-dd');
     let lesson = lessonsByDate.get(dateString);
 
     if (!lesson) {
         if (students.length > 0) {
             const newLesson = await createLesson({
-                date: dateString,
+                date: date.toISOString(),
                 subjectId: selectedSubject.id,
                 classId: selectedClassId,
             });
-            onLessonsChange([...lessons, newLesson]);
+            onLessonsChange([...(lessons || []), newLesson]);
             lesson = newLesson;
         } else {
             return;
@@ -107,13 +107,13 @@ export function Gradebook({
   const handleLessonUpdate = async (lesson: Lesson, data: Partial<Lesson>) => {
     if (!selectedSubjectId) return;
     const updatedLesson = await updateLesson(lesson.id, data);
-    const newLessons = lessons.map(l => l.id === lesson.id ? updatedLesson : l);
+    const newLessons = (lessons || []).map(l => l.id === lesson.id ? updatedLesson : l);
     onLessonsChange(newLessons);
     setSelectedLesson(updatedLesson);
   };
   
   const handleRecordUpdate = async (lessonId: string, studentId: string, newRecordData: Partial<LessonRecord>) => {
-      const lessonToUpdate = lessons.find(l => l.id === lessonId);
+      const lessonToUpdate = (lessons || []).find(l => l.id === lessonId);
       if (!lessonToUpdate || !selectedSubjectId) return;
       
       const updatedRecords = (lessonToUpdate.records || []).map(r => 
@@ -121,13 +121,13 @@ export function Gradebook({
       );
       
       const updatedLesson = await updateLesson(lessonId, { records: updatedRecords as any });
-      const newLessons = lessons.map(l => l.id === lessonId ? updatedLesson : l);
+      const newLessons = (lessons || []).map(l => l.id === lessonId ? updatedLesson : l);
       onLessonsChange(newLessons);
   };
   
   useEffect(() => {
     if (selectedLesson) {
-        const updatedLesson = lessons.find(l => l.id === selectedLesson.id);
+        const updatedLesson = (lessons || []).find(l => l.id === selectedLesson.id);
         if (updatedLesson) {
             setSelectedLesson(updatedLesson);
         }
@@ -177,7 +177,7 @@ export function Gradebook({
                     <TableRow>
                     <TableHead className="min-w-[250px] font-semibold sticky left-0 bg-muted/50 z-20">Ученик</TableHead>
                     {monthDays.map(day => {
-                        const lesson = lessonsByDate.get(day.toISOString().split('T')[0]);
+                        const lesson = lessonsByDate.get(format(day, 'yyyy-MM-dd'));
                         const dayOfWeek = getDay(day) === 0 ? 7 : getDay(day);
                         const isLessonDay = selectedSubject.lessonDays?.includes(dayOfWeek);
                         const isImportantLesson = lesson && lesson.lessonType && lesson.lessonType !== 'classwork';
@@ -229,7 +229,7 @@ export function Gradebook({
                         </div>
                         </TableCell>
                         {monthDays.map(day => {
-                        const dateString = day.toISOString().split('T')[0];
+                        const dateString = format(day, 'yyyy-MM-dd');
                         const lesson = lessonsByDate.get(dateString);
                         const record = lesson?.records?.find(r => r.studentId === student.id);
                         const isImportantLesson = lesson && lesson.lessonType && lesson.lessonType !== 'classwork';
