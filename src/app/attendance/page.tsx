@@ -10,6 +10,10 @@ import type { Class, Lesson, Student } from '@/lib/types';
 import { getClasses } from '@/actions/class-actions';
 import { getStudents } from '@/actions/student-actions';
 import { getLessonsForClass } from '@/actions/lesson-actions';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const COLORS = {
   present: 'hsl(var(--chart-2))',
@@ -24,10 +28,10 @@ export default function AttendancePage() {
   const [classes, setClasses] = useState<Omit<Class, 'students'>[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
-  const [isLoadingLessons, setIsLoadingLessons] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -46,20 +50,32 @@ export default function AttendancePage() {
     if (!selectedClassId) return;
 
     const fetchClassData = async () => {
-      setIsLoadingStudents(true);
-      setIsLoadingLessons(true);
+      setIsLoadingData(true);
       
-      const studentsData = await getStudents(selectedClassId);
+      const [studentsData, lessonsData] = await Promise.all([
+        getStudents(selectedClassId),
+        getLessonsForClass(
+            selectedClassId, 
+            startOfMonth(currentDate).toISOString(), 
+            endOfMonth(currentDate).toISOString()
+        )
+      ]);
+      
       setStudents(studentsData);
-      setIsLoadingStudents(false);
-
-      const lessonsData = await getLessonsForClass(selectedClassId);
       setLessons(lessonsData);
-      setIsLoadingLessons(false);
+      setIsLoadingData(false);
     };
 
     fetchClassData();
-  }, [selectedClassId]);
+  }, [selectedClassId, currentDate]);
+
+  const handleMonthChange = (direction: 'prev' | 'next') => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + (direction === 'prev' ? -1 : 1));
+      return newDate;
+    });
+  };
 
   const attendanceData = useMemo(() => {
     if (!lessons || !students) return { overall: [], byStudent: [] };
@@ -97,21 +113,34 @@ export default function AttendancePage() {
     return { overall: overallChartData, byStudent };
   }, [lessons, students]);
   
-  const isLoading = isLoadingClasses || isLoadingLessons || isLoadingStudents;
+  const isLoading = isLoadingClasses || isLoadingData;
 
   return (
     <div className="flex flex-col gap-6">
        <div>
         <h1 className="text-3xl font-bold tracking-tight">Посещаемость</h1>
         <p className="text-muted-foreground">
-          Статистика и отчеты по посещаемости учеников.
+          Статистика и отчеты по посещаемости учеников за выбранный месяц.
         </p>
       </div>
 
-      <div className="flex items-center justify-end">
-          {classes && classes.length > 0 && selectedClassId && (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}>
+                  <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-lg font-semibold capitalize w-32 text-center">
+                  {format(currentDate, 'LLLL yyyy', { locale: ru })}
+              </h2>
+              <Button variant="outline" size="icon" onClick={() => handleMonthChange('next')}>
+                  <ChevronRight className="h-4 w-4" />
+              </Button>
+          </div>
+          {isLoadingClasses ? (
+            <Skeleton className="h-10 w-[200px]" />
+          ) : classes && classes.length > 0 && selectedClassId && (
              <Select onValueChange={setSelectedClassId} defaultValue={selectedClassId}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Выберите класс" />
                 </SelectTrigger>
                 <SelectContent>
@@ -175,7 +204,7 @@ export default function AttendancePage() {
         ) : (
           <Card className="flex-grow">
             <CardContent className="flex items-center justify-center h-96">
-              <p className="text-muted-foreground">Нет данных о посещаемости для этого класса.</p>
+              <p className="text-muted-foreground">Нет данных о посещаемости для этого класса за выбранный месяц.</p>
             </CardContent>
           </Card>
         )
@@ -183,3 +212,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    

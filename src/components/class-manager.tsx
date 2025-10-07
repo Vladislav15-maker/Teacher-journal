@@ -49,19 +49,24 @@ export function ClassManager({ initialClasses, onClassesChange }: ClassManagerPr
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
+  const fetchStudents = async (classId: string) => {
+    const studentData = await getStudents(classId);
+    setStudents(studentData);
+  };
+
+  const fetchSubjects = async (classId: string) => {
+    const subjectData = await getSubjects(classId);
+    setSubjects(subjectData);
+  }
+
   useEffect(() => {
     if (!selectedClassId) {
       setStudents([]);
       setSubjects([]);
       return;
     }
-    async function fetchData() {
-      const studentData = await getStudents(selectedClassId!);
-      const subjectData = await getSubjects(selectedClassId!);
-      setStudents(studentData);
-      setSubjects(subjectData);
-    }
-    fetchData();
+    fetchStudents(selectedClassId);
+    fetchSubjects(selectedClassId);
   }, [selectedClassId]);
   
   useEffect(() => {
@@ -99,38 +104,38 @@ export function ClassManager({ initialClasses, onClassesChange }: ClassManagerPr
 
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'classroomId'>) => {
     if (!selectedClassId) return;
-    const newStudent = await createStudent(selectedClassId, studentData);
-    setStudents([...students, newStudent]);
+    await createStudent(selectedClassId, studentData);
+    fetchStudents(selectedClassId); // Re-fetch
   };
 
   const handleEditStudent = async (studentId: string, studentData: Partial<Omit<Student, 'id'>>) => {
     if (!selectedClassId) return;
-    const updated = await updateStudent(studentId, studentData);
-    setStudents(students.map(s => s.id === studentId ? updated : s));
+    await updateStudent(studentId, studentData);
+    fetchStudents(selectedClassId); // Re-fetch
   };
 
   const handleDeleteStudent = async (studentId: string) => {
     if (!selectedClassId) return;
     await deleteStudent(studentId);
-    setStudents(students.filter(s => s.id !== studentId));
+    fetchStudents(selectedClassId); // Re-fetch
   };
 
   const handleAddSubject = async (subjectData: Omit<Subject, 'id' | 'classId'>) => {
     if (!selectedClassId) return;
-    const newSubject = await createSubject(selectedClassId, subjectData);
-    setSubjects([...subjects, newSubject]);
+    await createSubject(selectedClassId, subjectData);
+    fetchSubjects(selectedClassId); // Re-fetch
   };
 
   const handleEditSubject = async (subjectId: string, subjectData: Partial<Omit<Subject, 'id'>>) => {
     if (!selectedClassId) return;
-    const updated = await updateSubject(subjectId, subjectData);
-    setSubjects(subjects.map(s => s.id === subjectId ? updated : s));
+    await updateSubject(subjectId, subjectData);
+    fetchSubjects(selectedClassId); // Re-fetch
   };
 
   const handleDeleteSubject = async (subjectId: string) => {
     if (!selectedClassId) return;
     await deleteSubject(subjectId);
-    setSubjects(subjects.filter(s => s.id !== subjectId));
+    fetchSubjects(selectedClassId); // Re-fetch
   };
 
 
@@ -499,3 +504,5 @@ function DeleteConfirmationDialog({ children, onConfirm, title, description }: {
         </AlertDialog>
     );
 }
+
+    

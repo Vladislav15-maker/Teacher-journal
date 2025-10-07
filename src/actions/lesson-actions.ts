@@ -28,19 +28,28 @@ export async function getLessonsForSubject(subjectId: string) {
     return lessons as any;
 }
 
-export async function getLessonsForClass(classId: string) {
+export async function getLessonsForClass(classId: string, startDate?: string, endDate?: string) {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
     }
 
+    const whereClause: any = {
+        classId,
+        class: {
+            teacherId: session.user.id
+        }
+    };
+
+    if (startDate && endDate) {
+        whereClause.date = {
+            gte: startDate,
+            lte: endDate
+        };
+    }
+
     const lessons = await db.lesson.findMany({
-        where: { 
-            classId,
-            class: {
-                teacherId: session.user.id
-            }
-        },
+        where: whereClause,
         include: {
             records: true
         }
@@ -126,3 +135,5 @@ export async function updateLesson(id: string, data: Partial<Omit<Lesson, 'id'>>
     const lessonWithRecords = await db.lesson.findUnique({ where: { id }, include: { records: true }});
     return lessonWithRecords as any;
 }
+
+    
