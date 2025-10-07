@@ -3,16 +3,25 @@ import type { Class as PrismaClass, Student as PrismaStudent, Subject as PrismaS
 
 export type LessonRecord = PrismaLessonRecord;
 
-export type Student = PrismaStudent & {
-    records: LessonRecord[];
+export type Student = PrismaStudent;
+
+// This is the base Class type from Prisma
+export type Class = PrismaClass;
+
+// This is a new, explicit type for a Class that includes its relations
+export type ClassWithRelations = PrismaClass & {
+  students: Student[];
+  subjects: Subject[];
 };
 
-export type Class = PrismaClass;
 export type Subject = PrismaSubject;
+
 export type Lesson = Omit<PrismaLesson, 'records'> & {
     records: LessonRecord[];
 };
+
 export type Teacher = PrismaUser;
+
 export type Message = PrismaMessage & {
     sender?: PrismaUser,
 };

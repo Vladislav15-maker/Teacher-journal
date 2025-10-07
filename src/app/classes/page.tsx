@@ -3,18 +3,23 @@
 import { useState, useEffect } from 'react';
 import { ClassManager } from "@/components/class-manager";
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Class } from '@/lib/types';
+import type { ClassWithRelations } from '@/lib/types';
 import { getClasses } from '@/actions/class-actions';
 
 export default function ClassesPage() {
-  const [classes, setClasses] = useState<Omit<Class, 'students'>[]>([]);
+  const [classes, setClasses] = useState<ClassWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchClasses() {
-      const fetchedClasses = await getClasses();
-      setClasses(fetchedClasses);
-      setIsLoading(false);
+      try {
+        const fetchedClasses = await getClasses();
+        setClasses(fetchedClasses);
+      } catch (error) {
+        console.error("Failed to fetch classes:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
     fetchClasses();
   }, []);

@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
-import type { Class, Student, Subject } from "@/lib/types";
+import type { ClassWithRelations, Student, Subject } from "@/lib/types";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { PlusCircle, Users, Edit, Trash2, Book, User as UserIcon } from "lucide-react";
@@ -38,8 +38,8 @@ import { getStudents, createStudent, updateStudent, deleteStudent } from "@/acti
 import { getSubjects, createSubject, updateSubject, deleteSubject } from "@/actions/subject-actions";
 
 interface ClassManagerProps {
-  initialClasses: Omit<Class, 'students'>[];
-  onClassesChange: (classes: Omit<Class, 'students'>[]) => void;
+  initialClasses: ClassWithRelations[];
+  onClassesChange: (classes: ClassWithRelations[]) => void;
 }
 
 export function ClassManager({ initialClasses, onClassesChange }: ClassManagerProps) {
@@ -48,26 +48,16 @@ export function ClassManager({ initialClasses, onClassesChange }: ClassManagerPr
 
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-
-  const fetchStudents = async (classId: string) => {
-    const studentData = await getStudents(classId);
-    setStudents(studentData);
-  };
-
-  const fetchSubjects = async (classId: string) => {
-    const subjectData = await getSubjects(classId);
-    setSubjects(subjectData);
-  }
+  
+  const selectedClass = initialClasses.find(c => c.id === selectedClassId);
 
   useEffect(() => {
-    if (!selectedClassId) {
-      setStudents([]);
-      setSubjects([]);
-      return;
+    if (selectedClass) {
+      setStudents(selectedClass.students);
+      setSubjects(selectedClass.subjects);
     }
-    fetchStudents(selectedClassId);
-    fetchSubjects(selectedClassId);
-  }, [selectedClassId]);
+  }, [selectedClass]);
+
   
   useEffect(() => {
     if (!selectedClassId && initialClasses.length > 0) {
@@ -100,42 +90,56 @@ export function ClassManager({ initialClasses, onClassesChange }: ClassManagerPr
     setActiveTab('students');
   };
   
-  const selectedClass = initialClasses.find(c => c.id === selectedClassId);
+  const refreshSelectedClassData = async () => {
+    if (!selectedClassId) return;
+    const studentData = await getStudents(selectedClassId);
+    setStudents(studentData);
+    const subjectData = await getSubjects(selectedClassId);
+    setSubjects(subjectData);
+
+    // Also update the main classes array to reflect changes in sub-entities
+    onClassesChange(initialClasses.map(c => {
+      if (c.id === selectedClassId) {
+        return { ...c, students: studentData, subjects: subjectData };
+      }
+      return c;
+    }));
+  };
 
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'classroomId'>) => {
     if (!selectedClassId) return;
     await createStudent(selectedClassId, studentData);
-    fetchStudents(selectedClassId); // Re-fetch
+    refreshSelectedClassData();
   };
 
   const handleEditStudent = async (studentId: string, studentData: Partial<Omit<Student, 'id'>>) => {
     if (!selectedClassId) return;
     await updateStudent(studentId, studentData);
-    fetchStudents(selectedClassId); // Re-fetch
+    refreshSelectedClassData();
   };
 
   const handleDeleteStudent = async (studentId: string) => {
     if (!selectedClassId) return;
     await deleteStudent(studentId);
-    fetchStudents(selectedClassId); // Re-fetch
+    refreshSelectedClassData();
   };
 
   const handleAddSubject = async (subjectData: Omit<Subject, 'id' | 'classId'>) => {
     if (!selectedClassId) return;
     await createSubject(selectedClassId, subjectData);
-    fetchSubjects(selectedClassId); // Re-fetch
+    refreshSelectedClassData();
   };
 
   const handleEditSubject = async (subjectId: string, subjectData: Partial<Omit<Subject, 'id'>>) => {
     if (!selectedClassId) return;
     await updateSubject(subjectId, subjectData);
-    fetchSubjects(selectedClassId); // Re-fetch
+    refreshSelectedClassData();
   };
 
   const handleDeleteSubject = async (subjectId: string) => {
     if (!selectedClassId) return;
     await deleteSubject(subjectId);
-    fetchSubjects(selectedClassId); // Re-fetch
+    refreshSelectedClassData();
   };
 
 
@@ -328,9 +332,15 @@ function AddClassDialog({ onAddClass }: { onAddClass: (name: string) => void }) 
     );
 }
 
-function EditClassDialog({ children, classData, onEdit }: { children: React.ReactNode, classData: Omit<Class, 'students'>, onEdit: (id: string, name: string) => void }) {
+function EditClassDialog({ children, classData, onEdit }: { children: React.ReactNode, classData: ClassWithRelations, onEdit: (id: string, name: string) => void }) {
     const [name, setName] = useState(classData.name);
     const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        if(open) {
+            setName(classData.name)
+        }
+    }, [open, classData.name])
 
     const handleSave = () => {
         if (name.trim()) {
@@ -345,6 +355,9 @@ function EditClassDialog({ children, classData, onEdit }: { children: React.Reac
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Редактировать класс</DialogTitle>
+                    <DialogDescription>
+                        Вы можете изменить название класса.
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -373,16 +386,19 @@ function StudentDialog({ mode, onSave, student, children }: { mode: 'add' | 'edi
     const [lastName, setLastName] = useState('');
     
     useEffect(() => {
-        if (mode === 'edit' && student) {
-            setFirstName(student.firstName);
-            setLastName(student.lastName);
-        } else {
-            setFirstName('');
-            setLastName('');
+        if (open) {
+            if (mode === 'edit' && student) {
+                setFirstName(student.firstName);
+                setLastName(student.lastName);
+            } else {
+                setFirstName('');
+                setLastName('');
+            }
         }
     }, [student, mode, open]);
 
     const title = mode === 'add' ? 'Добавить ученика' : 'Редактировать ученика';
+    const description = mode === 'add' ? 'Введите имя и фамилию нового ученика.' : 'Вы можете изменить данные ученика.';
 
     const handleSave = () => {
         if (firstName.trim() && lastName.trim()) {
@@ -397,6 +413,7 @@ function StudentDialog({ mode, onSave, student, children }: { mode: 'add' | 'edi
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -445,6 +462,7 @@ function SubjectDialog({ mode, onSave, subject, children }: { mode: 'add' | 'edi
     }, [open, mode, subject]);
 
     const title = mode === 'add' ? 'Добавить предмет' : 'Редактировать предмет';
+    const description = mode === 'add' ? 'Введите название предмета и укажите дни проведения уроков.' : 'Вы можете изменить данные предмета.';
 
     const handleSave = () => {
         if (name.trim()) {
@@ -455,7 +473,7 @@ function SubjectDialog({ mode, onSave, subject, children }: { mode: 'add' | 'edi
     
     const handleDayToggle = (day: number) => {
         setLessonDays(prev => 
-            prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+            prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
         );
     };
 
@@ -465,6 +483,7 @@ function SubjectDialog({ mode, onSave, subject, children }: { mode: 'add' | 'edi
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
