@@ -14,6 +14,7 @@ import { RecordEditorPopover } from './record-editor-popover';
 import { LessonEditorSheet } from './lesson-editor-sheet';
 import { createLesson, updateLesson } from '@/actions/lesson-actions';
 import { Card, CardContent } from './ui/card';
+import { Skeleton } from './ui/skeleton';
 
 interface GradebookProps {
   students: Student[];
@@ -24,6 +25,7 @@ interface GradebookProps {
   currentDate: Date;
   setCurrentDate: (date: Date) => void;
   onLessonsChange: (lessons: Lesson[]) => void;
+  isLoadingLessons: boolean;
 }
 
 const lessonTypeLabels: { [key: string]: string } = {
@@ -42,6 +44,7 @@ export function Gradebook({
     currentDate, 
     setCurrentDate,
     onLessonsChange,
+    isLoadingLessons,
 }: GradebookProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -145,6 +148,10 @@ export function Gradebook({
               <p className="text-muted-foreground">В этом классе нет учеников. <a href="/classes" className="underline">Добавьте учеников</a>, чтобы начать вести журнал.</p>
           </Card>
       );
+  }
+  
+  if (isLoadingLessons) {
+      return <Skeleton className="h-[600px] w-full" />;
   }
 
 

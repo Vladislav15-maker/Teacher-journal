@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Gradebook } from '@/components/gradebook';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Class, Subject, Student, Lesson } from '@/lib/types';
@@ -9,6 +9,7 @@ import { getClasses } from '@/actions/class-actions';
 import { getSubjects } from '@/actions/subject-actions';
 import { getStudents } from '@/actions/student-actions';
 import { getLessonsForSubject } from '@/actions/lesson-actions';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -73,21 +74,24 @@ export default function Home() {
     fetchStudents();
   }, [selectedClassId]);
   
+  const fetchLessons = useCallback(async () => {
+    if (!selectedSubjectId) {
+      setLessons([]);
+      return;
+    };
+    setIsLoadingLessons(true);
+    const start = startOfMonth(currentDate);
+    const end = endOfMonth(currentDate);
+    const fetchedLessons = await getLessonsForSubject(selectedSubjectId, start.toISOString(), end.toISOString());
+    setLessons(fetchedLessons);
+    setIsLoadingLessons(false);
+  }, [selectedSubjectId, currentDate]);
+
   useEffect(() => {
-    async function fetchLessons() {
-      if (!selectedSubjectId) {
-        setLessons([]);
-        return;
-      };
-      setIsLoadingLessons(true);
-      const fetchedLessons = await getLessonsForSubject(selectedSubjectId);
-      setLessons(fetchedLessons);
-      setIsLoadingLessons(false);
-    }
     fetchLessons();
-  }, [selectedSubjectId]);
+  }, [fetchLessons]);
   
-  const overallLoading = isLoading || isLoadingSubjects || isLoadingStudents || isLoadingLessons;
+  const overallLoading = isLoading || isLoadingSubjects || isLoadingStudents;
 
   if (isLoading) {
     return <Skeleton className="h-[600px] w-full" />;
@@ -156,6 +160,7 @@ export default function Home() {
                 currentDate={currentDate}
                 setCurrentDate={setCurrentDate}
                 onLessonsChange={setLessons}
+                isLoadingLessons={isLoadingLessons}
             />
         )}
     </div>
