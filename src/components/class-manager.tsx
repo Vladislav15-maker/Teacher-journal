@@ -369,19 +369,25 @@ function EditClassDialog({ children, classData, onEdit }: { children: React.Reac
 
 function StudentDialog({ mode, onSave, student, children }: { mode: 'add' | 'edit', onSave: (data: any) => void, student?: Student, children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
-    const [firstName, setFirstName] = useState(student?.firstName || '');
-    const [lastName, setLastName] = useState(student?.lastName || '');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     
+    useEffect(() => {
+        if (mode === 'edit' && student) {
+            setFirstName(student.firstName);
+            setLastName(student.lastName);
+        } else {
+            setFirstName('');
+            setLastName('');
+        }
+    }, [student, mode, open]);
+
     const title = mode === 'add' ? 'Добавить ученика' : 'Редактировать ученика';
 
     const handleSave = () => {
         if (firstName.trim() && lastName.trim()) {
             onSave({ firstName, lastName });
             setOpen(false);
-            if (mode === 'add') {
-                setFirstName('');
-                setLastName('');
-            }
         }
     };
 
@@ -423,16 +429,18 @@ const daysOfWeek = [
 
 function SubjectDialog({ mode, onSave, subject, children }: { mode: 'add' | 'edit', onSave: (data: any) => void, subject?: Subject, children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
-    const [name, setName] = useState(subject?.name || '');
-    const [lessonDays, setLessonDays] = useState<number[]>(subject?.lessonDays || []);
+    const [name, setName] = useState('');
+    const [lessonDays, setLessonDays] = useState<number[]>([]);
 
     useEffect(() => {
-        if (mode === 'add') {
-            setName('');
-            setLessonDays([]);
-        } else {
-            setName(subject?.name || '');
-            setLessonDays(subject?.lessonDays || []);
+        if (open) {
+            if (mode === 'edit' && subject) {
+                setName(subject.name || '');
+                setLessonDays(subject.lessonDays || []);
+            } else {
+                setName('');
+                setLessonDays([]);
+            }
         }
     }, [open, mode, subject]);
 
@@ -510,5 +518,3 @@ function DeleteConfirmationDialog({ children, onConfirm, title, description }: {
         </AlertDialog>
     );
 }
-
-    

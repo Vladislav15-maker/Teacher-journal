@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Gradebook } from '@/components/gradebook';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Class, Subject, Student, Lesson } from '@/lib/types';
@@ -41,55 +41,58 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    async function fetchSubjects() {
+    async function fetchSubjectsAndStudents() {
       if (!selectedClassId) {
         setSubjects([]);
+        setStudents([]);
         setSelectedSubjectId(undefined);
         return;
       };
+      
       setIsLoadingSubjects(true);
-      const fetchedSubjects = await getSubjects(selectedClassId);
+      setIsLoadingStudents(true);
+      
+      const [fetchedSubjects, fetchedStudents] = await Promise.all([
+          getSubjects(selectedClassId),
+          getStudents(selectedClassId)
+      ]);
+      
       setSubjects(fetchedSubjects);
+      setStudents(fetchedStudents);
+
       if (fetchedSubjects.length > 0) {
         setSelectedSubjectId(fetchedSubjects[0].id);
       } else {
         setSelectedSubjectId(undefined);
       }
-      setIsLoadingSubjects(false);
-    }
-    fetchSubjects();
-  }, [selectedClassId]);
 
-  useEffect(() => {
-    async function fetchStudents() {
-      if (!selectedClassId) {
-        setStudents([]);
-        return
-      };
-      setIsLoadingStudents(true);
-      const fetchedStudents = await getStudents(selectedClassId);
-      setStudents(fetchedStudents);
+      setIsLoadingSubjects(false);
       setIsLoadingStudents(false);
     }
-    fetchStudents();
+    fetchSubjectsAndStudents();
   }, [selectedClassId]);
   
-  const fetchLessons = useCallback(async () => {
-    if (!selectedSubjectId) {
-      setLessons([]);
-      return;
-    };
-    setIsLoadingLessons(true);
-    const start = startOfMonth(currentDate);
-    const end = endOfMonth(currentDate);
-    const fetchedLessons = await getLessonsForSubject(selectedSubjectId, start.toISOString(), end.toISOString());
-    setLessons(fetchedLessons);
-    setIsLoadingLessons(false);
-  }, [selectedSubjectId, currentDate]);
-
   useEffect(() => {
+    async function fetchLessons() {
+        if (!selectedSubjectId) {
+          setLessons([]);
+          return;
+        };
+        setIsLoadingLessons(true);
+        const start = startOfMonth(currentDate);
+        const end = endOfMonth(currentDate);
+        try {
+            const fetchedLessons = await getLessonsForSubject(selectedSubjectId, start.toISOString(), end.toISOString());
+            setLessons(fetchedLessons);
+        } catch (error) {
+            console.error("Failed to fetch lessons:", error);
+            setLessons([]);
+        } finally {
+            setIsLoadingLessons(false);
+        }
+    }
     fetchLessons();
-  }, [fetchLessons]);
+  }, [selectedSubjectId, currentDate]);
   
   const overallLoading = isLoading || isLoadingSubjects || isLoadingStudents;
 

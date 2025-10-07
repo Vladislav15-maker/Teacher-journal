@@ -22,8 +22,8 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
 
     if (startDate && endDate) {
         whereClause.date = {
-            gte: startDate,
-            lte: endDate
+            gte: new Date(startDate).toISOString(),
+            lte: new Date(endDate).toISOString()
         };
     }
 
@@ -31,6 +31,9 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
         where: whereClause,
         include: {
             records: true
+        },
+        orderBy: {
+            date: 'asc'
         }
     });
 
@@ -61,6 +64,9 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
         where: whereClause,
         include: {
             records: true
+        },
+        orderBy: {
+            date: 'asc'
         }
     });
     return lessons as any;
