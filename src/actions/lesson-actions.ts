@@ -99,7 +99,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     
     const newLesson = await db.lesson.create({
         data: {
-            date: new Date(data.date),
+            date: data.date,
             topic: 'Новая тема',
             homework: '',
             subjectId: data.subjectId,
