@@ -14,6 +14,10 @@ export async function getClasses() {
     where: {
       teacherId: session.user.id,
     },
+    include: {
+      students: true,
+      subjects: true,
+    },
     orderBy: {
       name: 'asc'
     }
@@ -31,6 +35,10 @@ export async function createClass(name: string) {
       name,
       teacherId: session.user.id,
     },
+     include: {
+      students: true,
+      subjects: true,
+    }
   });
 }
 
@@ -43,6 +51,10 @@ export async function updateClass(id: string, name: string) {
     return await db.class.update({
         where: { id, teacherId: session.user.id },
         data: { name },
+        include: {
+          students: true,
+          subjects: true,
+        }
     });
 }
 
