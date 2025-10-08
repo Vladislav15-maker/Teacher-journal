@@ -7,9 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Class, Lesson, Student } from '@/lib/types';
-import { getClasses } from '@/actions/class-actions';
-import { getStudents } from '@/actions/student-actions';
-import { getLessonsForClass } from '@/actions/lesson-actions';
+import * as ClassActions from '@/actions/class-actions';
+import * as StudentActions from '@/actions/student-actions';
+import * as LessonActions from '@/actions/lesson-actions';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export default function AttendancePage() {
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       try {
-        const data = await getClasses();
+        const data = await ClassActions.getClasses();
         setClasses(data);
         if (data.length > 0 && !selectedClassId) {
           setSelectedClassId(data[0].id);
@@ -61,8 +61,8 @@ export default function AttendancePage() {
 
     try {
       const [studentsData, lessonsData] = await Promise.all([
-        getStudents(selectedClassId),
-        getLessonsForClass(
+        StudentActions.getStudents(selectedClassId),
+        LessonActions.getLessonsForClass(
             selectedClassId, 
             startDate.toISOString(), 
             endDate.toISOString()
