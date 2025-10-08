@@ -25,7 +25,7 @@ export async function getStudents(classroomId: string) {
   });
 }
 
-export async function createStudent(classroomId: string, data: Omit<Student, 'id' | 'classroomId'>) {
+export async function createStudent(classroomId: string, data: Omit<Student, 'id' | 'classroomId' | 'records'>) {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -52,7 +52,7 @@ export async function createStudent(classroomId: string, data: Omit<Student, 'id
   });
 }
 
-export async function updateStudent(id: string, data: Partial<Omit<Student, 'id'>>) {
+export async function updateStudent(id: string, data: Partial<Omit<Student, 'id' | 'records'>>) {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
