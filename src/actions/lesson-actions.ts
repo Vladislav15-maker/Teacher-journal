@@ -20,7 +20,7 @@ async function getLessonsWithRecords(where: Prisma.LessonWhereInput): Promise<Le
     }
 
     const lessonIds = lessons.map(l => l.id);
-    const records = await db.lessonrecord.findMany({
+    const records = await db.lessonRecord.findMany({
         where: {
             lessonId: { in: lessonIds }
         }
@@ -128,7 +128,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
             comment: null,
         }));
         
-        await db.lessonrecord.createMany({
+        await db.lessonRecord.createMany({
             data: lessonRecords,
         });
     }
@@ -165,14 +165,13 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
             for (const record of records) {
                 if (record.id) {
                     const { id: recordId, ...recordData } = record;
-                    // Handle empty string for grade before updating
                     const gradeValue = recordData.grade;
                     const finalRecordData = {
                         ...recordData,
-                        grade: gradeValue === '' || gradeValue === undefined ? null : Number(gradeValue),
+                        grade: gradeValue === '' || recordData.grade === undefined ? null : Number(gradeValue),
                     };
 
-                    await tx.lessonrecord.update({
+                    await tx.lessonRecord.update({
                         where: { id: recordId },
                         data: finalRecordData,
                     });
