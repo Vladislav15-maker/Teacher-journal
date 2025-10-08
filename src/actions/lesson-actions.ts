@@ -3,21 +3,40 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import type { Prisma, Lesson as PrismaLesson, LessonRecord } from "@prisma/client";
+import type { Prisma, Lesson as PrismaLesson, LessonRecord as PrismaLessonRecord } from "@prisma/client";
 import type { Lesson } from "@/lib/types";
 
 // This is a more robust way to handle fetching lessons with their records.
 async function getLessonsWithRecords(where: Prisma.LessonWhereInput): Promise<Lesson[]> {
     const lessons = await db.lesson.findMany({
         where,
-        include: {
-            records: true,
-        },
         orderBy: {
             date: 'asc'
         }
     });
-    return lessons;
+
+    if (lessons.length === 0) {
+        return [];
+    }
+
+    const lessonIds = lessons.map(l => l.id);
+    const records = await db.lessonRecord.findMany({
+        where: {
+            lessonId: { in: lessonIds }
+        }
+    });
+
+    const recordsByLessonId = new Map<string, PrismaLessonRecord[]>();
+    records.forEach(record => {
+        const existing = recordsByLessonId.get(record.lessonId) || [];
+        existing.push(record);
+        recordsByLessonId.set(record.lessonId, existing);
+    });
+
+    return lessons.map(lesson => ({
+        ...lesson,
+        records: recordsByLessonId.get(lesson.id) || []
+    }));
 }
 
 export async function getLessonsForSubject(subjectId: string, startDate?: string, endDate?: string) {
@@ -25,14 +44,23 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
     }
-
-    const whereClause: Prisma.LessonWhereInput = {
-        subjectId,
-        subject: {
+    
+    // First, verify the teacher has access to this subject
+    const subject = await db.subject.findFirst({
+        where: {
+            id: subjectId,
             classroom: {
                 teacherId: session.user.id
             }
         }
+    });
+
+    if (!subject) {
+        throw new Error("Subject not found or unauthorized");
+    }
+
+    const whereClause: Prisma.LessonWhereInput = {
+        subjectId,
     };
     
     // Fetch all lessons and filter in code, as Prisma has issues with GTE/LTE on string dates.
@@ -56,11 +84,20 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
         throw new Error("Unauthorized");
     }
 
-    const whereClause: Prisma.LessonWhereInput = {
-        classId,
-        classroom: {
+    // First, verify the teacher has access to this class
+    const classroom = await db.class.findFirst({
+        where: {
+            id: classId,
             teacherId: session.user.id
         }
+    });
+
+    if (!classroom) {
+        throw new Error("Class not found or unauthorized");
+    }
+
+    const whereClause: Prisma.LessonWhereInput = {
+        classId,
     };
 
     // Fetch all lessons and filter in code
@@ -123,7 +160,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     return createdLessonsWithRecords[0];
 }
 
-export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id'>> & { records?: Partial<LessonRecord>[] }): Promise<Lesson> {
+export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 'id' | 'records'>> & { records?: Partial<PrismaLessonRecord>[] }): Promise<Lesson> {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error("Unauthorized");
@@ -147,7 +184,7 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
                 if (record.id) {
                     const { id: recordId, ...recordData } = record;
                      // Ensure grade is number or null, not an empty string
-                    if (recordData.grade === '') {
+                    if (recordData.grade === '' || recordData.grade === undefined) {
                         recordData.grade = null;
                     }
                     await tx.lessonRecord.update({

@@ -64,7 +64,19 @@ export async function deleteClass(id: string) {
         throw new Error("Unauthorized");
     }
 
-    return await db.class.delete({
-        where: { id, teacherId: session.user.id },
+    // Use a transaction to delete related subjects and students first
+    return await db.$transaction(async (tx) => {
+      await tx.subject.deleteMany({
+        where: { classId: id },
+      });
+      await tx.student.deleteMany({
+        where: { classroomId: id },
+      });
+      await tx.lesson.deleteMany({
+        where: { classId: id },
+      });
+      return await tx.class.delete({
+          where: { id, teacherId: session.user.id },
+      });
     });
 }
