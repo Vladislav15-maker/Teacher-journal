@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from "@/lib/db";
@@ -55,7 +54,6 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
         }
     };
     
-    // Fetch all lessons and filter in code, as Prisma has issues with GTE/LTE on string dates.
     const allLessons = await getLessonsWithRecords(whereClause);
 
     if (startDate && endDate) {
@@ -76,18 +74,18 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
         throw new Error("Unauthorized");
     }
 
+    // NOTE: use classroomId (match your DB naming)
     const whereClause: Prisma.LessonWhereInput = {
-        classId,
+        classroomId: classId,
         classroom: {
             teacherId: session.user.id
         }
     };
 
-    // Fetch all lessons and filter in code
     const allLessons = await getLessonsWithRecords(whereClause);
     
     if (startDate && endDate) {
-         const start = new Date(startDate).getTime();
+        const start = new Date(startDate).getTime();
         const end = new Date(endDate).getTime();
         return allLessons.filter(lesson => {
             const lessonDate = new Date(lesson.date).getTime();
@@ -105,15 +103,18 @@ export async function createLesson(data: { date: string, subjectId: string, clas
         throw new Error("Unauthorized");
     }
     
+    // Получаем студентов по classroomId (похоже это имя в вашей схеме)
     const students = await db.student.findMany({ where: { classroomId: data.classId }});
     
     const newLesson = await db.lesson.create({
         data: {
-            date: data.date,
+            // Приводим к Date для надежности
+            date: new Date(data.date),
             topic: 'Новая тема',
             homework: '',
             subjectId: data.subjectId,
-            classId: data.classId,
+            // здесь используем classroomId (не classId)
+            classroomId: data.classId,
             lessonType: 'classwork',
         }
     });
@@ -124,7 +125,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
             lessonId: newLesson.id,
             studentId: student.id,
             grade: null,
-            attendance: 'present' as const,
+            attendance: 'present',
             comment: null,
         }));
         
@@ -167,8 +168,8 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
                 if (record.id) {
                     const { id: recordId, ...recordData } = record;
                      // Ensure grade is number or null, not an empty string
-                    if (recordData.grade === '') {
-                        recordData.grade = null;
+                    if ((recordData as any).grade === '') {
+                        (recordData as any).grade = null;
                     }
                     await tx.lessonrecord.update({
                         where: { id: recordId },
