@@ -93,7 +93,7 @@ export default function AttendancePage() {
   };
 
   const attendanceData = useMemo(() => {
-    if (!lessons || !students) return { overall: [], byStudent: [] };
+    if (!lessons || !students) return { overall: [], byStudent: [], hasData: false };
 
     const overall: Record<AttendanceKey, number> = { present: 0, absent: 0, excused: 0 };
     const byStudent: { name: string; present: number; absent: number; excused: number }[] = students.map(s => ({
