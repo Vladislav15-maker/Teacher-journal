@@ -45,25 +45,16 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
         throw new Error("Unauthorized");
     }
     
-    // First, verify the teacher has access to this subject
     const subject = await db.subject.findFirst({
-        where: {
-            id: subjectId,
-            classroom: {
-                teacherId: session.user.id
-            }
-        }
+        where: { id: subjectId, classroom: { teacherId: session.user.id } }
     });
 
     if (!subject) {
         throw new Error("Subject not found or unauthorized");
     }
 
-    const whereClause: Prisma.LessonWhereInput = {
-        subjectId,
-    };
+    const whereClause: Prisma.LessonWhereInput = { subjectId };
     
-    // Fetch all lessons and filter in code, as Prisma has issues with GTE/LTE on string dates.
     const allLessons = await getLessonsWithRecords(whereClause);
 
     if (startDate && endDate) {
@@ -84,23 +75,16 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
         throw new Error("Unauthorized");
     }
 
-    // First, verify the teacher has access to this class
     const classroom = await db.class.findFirst({
-        where: {
-            id: classId,
-            teacherId: session.user.id
-        }
+        where: { id: classId, teacherId: session.user.id }
     });
 
     if (!classroom) {
         throw new Error("Class not found or unauthorized");
     }
 
-    const whereClause: Prisma.LessonWhereInput = {
-        classId,
-    };
+    const whereClause: Prisma.LessonWhereInput = { classId };
 
-    // Fetch all lessons and filter in code
     const allLessons = await getLessonsWithRecords(whereClause);
     
     if (startDate && endDate) {
@@ -135,7 +119,6 @@ export async function createLesson(data: { date: string, subjectId: string, clas
         }
     });
     
-    // Create empty records for all students in the class
     if (students.length > 0) {
         const lessonRecords = students.map(student => ({
             lessonId: newLesson.id,
@@ -153,7 +136,6 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     const createdLessonsWithRecords = await getLessonsWithRecords({ id: newLesson.id });
 
     if (createdLessonsWithRecords.length === 0) {
-        // This should not happen, but as a fallback, return the lesson without records
         return { ...newLesson, records: [] };
     }
 
@@ -168,9 +150,7 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
 
     const { records, ...lessonData } = data;
     
-    // Use a transaction to ensure all or nothing is updated
     await db.$transaction(async (tx) => {
-        // 1. Update the lesson data itself if provided
         if (Object.keys(lessonData).length > 0) {
             await tx.lesson.update({
                 where: { id },
@@ -178,12 +158,10 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
             });
         }
     
-        // 2. Update the records if provided
         if (records && Array.isArray(records)) {
             for (const record of records) {
                 if (record.id) {
                     const { id: recordId, ...recordData } = record;
-                     // Ensure grade is number or null, not an empty string
                     if (recordData.grade === '' || recordData.grade === undefined) {
                         recordData.grade = null;
                     }
