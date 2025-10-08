@@ -20,7 +20,7 @@ async function getLessonsWithRecords(where: Prisma.LessonWhereInput): Promise<Le
     }
 
     const lessonIds = lessons.map(l => l.id);
-    const records = await db.lessonRecord.findMany({
+    const records = await db.lessonrecord.findMany({
         where: {
             lessonId: { in: lessonIds }
         }
@@ -128,7 +128,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
             comment: null,
         }));
         
-        await db.lessonRecord.createMany({
+        await db.lessonrecord.createMany({
             data: lessonRecords,
         });
     }
@@ -136,7 +136,10 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     const createdLessonsWithRecords = await getLessonsWithRecords({ id: newLesson.id });
 
     if (createdLessonsWithRecords.length === 0) {
-        return { ...newLesson, records: [] };
+        // This should not happen, but as a fallback, return the lesson without records
+        const fallbackLesson = await db.lesson.findUnique({ where: { id: newLesson.id }});
+        if (!fallbackLesson) throw new Error("Failed to create or find lesson");
+        return { ...fallbackLesson, records: [] };
     }
 
     return createdLessonsWithRecords[0];
@@ -162,12 +165,16 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
             for (const record of records) {
                 if (record.id) {
                     const { id: recordId, ...recordData } = record;
-                    if (recordData.grade === '' || recordData.grade === undefined) {
-                        recordData.grade = null;
-                    }
-                    await tx.lessonRecord.update({
+                    // Handle empty string for grade before updating
+                    const gradeValue = recordData.grade;
+                    const finalRecordData = {
+                        ...recordData,
+                        grade: gradeValue === '' || gradeValue === undefined ? null : Number(gradeValue),
+                    };
+
+                    await tx.lessonrecord.update({
                         where: { id: recordId },
-                        data: recordData,
+                        data: finalRecordData,
                     });
                 }
             }
