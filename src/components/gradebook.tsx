@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Student, Lesson, Subject, LessonRecord } from '@/lib/types';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -145,12 +145,12 @@ export function Gradebook({
   
   // This effect ensures that the data in the sheet is always fresh
   // if the underlying lesson data changes while the sheet is open.
-  const currentlySelectedLesson = lessons.find(l => l.id === selectedLesson?.id);
   useEffect(() => {
+    const currentlySelectedLesson = lessons.find(l => l.id === selectedLesson?.id);
     if (isSheetOpen && currentlySelectedLesson) {
         setSelectedLesson(currentlySelectedLesson);
     }
-  }, [isSheetOpen, currentlySelectedLesson]);
+  }, [isSheetOpen, lessons, selectedLesson?.id]);
 
   if (!selectedSubjectId || !selectedSubject) {
     return (
