@@ -10,34 +10,14 @@ import type { Lesson } from "@/lib/types";
 async function getLessonsWithRecords(where: Prisma.LessonWhereInput): Promise<Lesson[]> {
     const lessons = await db.lesson.findMany({
         where,
+        include: {
+            records: true,
+        },
         orderBy: {
             date: 'asc'
         }
     });
-
-    const lessonIds = lessons.map(l => l.id);
-    if (lessonIds.length === 0) {
-        return lessons.map(lesson => ({ ...lesson, records: [] }));
-    }
-
-    const records = await db.lessonRecord.findMany({
-        where: {
-            lessonId: { in: lessonIds }
-        }
-    });
-
-    const recordsByLessonId = new Map<string, LessonRecord[]>();
-    records.forEach(record => {
-        if (!recordsByLessonId.has(record.lessonId)) {
-            recordsByLessonId.set(record.lessonId, []);
-        }
-        recordsByLessonId.get(record.lessonId)!.push(record);
-    });
-
-    return lessons.map(lesson => ({
-        ...lesson,
-        records: recordsByLessonId.get(lesson.id) || []
-    }));
+    return lessons;
 }
 
 export async function getLessonsForSubject(subjectId: string, startDate?: string, endDate?: string) {
