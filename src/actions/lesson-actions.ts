@@ -20,7 +20,7 @@ async function getLessonsWithRecords(where: Prisma.LessonWhereInput): Promise<Le
         return lessons.map(lesson => ({ ...lesson, records: [] }));
     }
 
-    const records = await db.lessonRecord.findMany({
+    const records = await db.lessonrecord.findMany({
         where: {
             lessonId: { in: lessonIds }
         }
@@ -128,7 +128,7 @@ export async function createLesson(data: { date: string, subjectId: string, clas
             comment: null,
         }));
         
-        await db.lessonRecord.createMany({
+        await db.lessonrecord.createMany({
             data: lessonRecords,
         });
     }
@@ -170,7 +170,7 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
                     if (recordData.grade === '') {
                         recordData.grade = null;
                     }
-                    await tx.lessonRecord.update({
+                    await tx.lessonrecord.update({
                         where: { id: recordId },
                         data: recordData,
                     });
