@@ -54,15 +54,20 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
             }
         }
     };
+    
+    // Fetch all lessons and filter in code, as Prisma has issues with GTE/LTE on string dates.
+    const allLessons = await getLessonsWithRecords(whereClause);
 
     if (startDate && endDate) {
-        whereClause.date = {
-            gte: startDate,
-            lte: endDate
-        };
+        const start = new Date(startDate).getTime();
+        const end = new Date(endDate).getTime();
+        return allLessons.filter(lesson => {
+            const lessonDate = new Date(lesson.date).getTime();
+            return lessonDate >= start && lessonDate <= end;
+        });
     }
     
-    return getLessonsWithRecords(whereClause);
+    return allLessons;
 }
 
 export async function getLessonsForClass(classId: string, startDate?: string, endDate?: string) {
@@ -78,14 +83,19 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
         }
     };
 
+    // Fetch all lessons and filter in code
+    const allLessons = await getLessonsWithRecords(whereClause);
+    
     if (startDate && endDate) {
-        whereClause.date = {
-            gte: startDate,
-            lte: endDate
-        };
+         const start = new Date(startDate).getTime();
+        const end = new Date(endDate).getTime();
+        return allLessons.filter(lesson => {
+            const lessonDate = new Date(lesson.date).getTime();
+            return lessonDate >= start && lessonDate <= end;
+        });
     }
     
-    return getLessonsWithRecords(whereClause);
+    return allLessons;
 }
 
 
@@ -126,7 +136,8 @@ export async function createLesson(data: { date: string, subjectId: string, clas
     const createdLessonsWithRecords = await getLessonsWithRecords({ id: newLesson.id });
 
     if (createdLessonsWithRecords.length === 0) {
-        throw new Error("Could not find created lesson with records");
+        // This should not happen, but as a fallback, return the lesson without records
+        return { ...newLesson, records: [] };
     }
 
     return createdLessonsWithRecords[0];
@@ -140,42 +151,33 @@ export async function updateLesson(id: string, data: Partial<Omit<PrismaLesson, 
 
     const { records, ...lessonData } = data;
     
-    // Transaction to ensure data integrity
-    const transactionOperations = [];
-
-    // If there's other lesson data to update, add it to the transaction
-    if (Object.keys(lessonData).length > 0) {
-        transactionOperations.push(
-            db.lesson.update({
+    // Use a transaction to ensure all or nothing is updated
+    await db.$transaction(async (tx) => {
+        // 1. Update the lesson data itself if provided
+        if (Object.keys(lessonData).length > 0) {
+            await tx.lesson.update({
                 where: { id },
                 data: lessonData,
-            })
-        );
-    }
+            });
+        }
     
-    // If there are records to update, add them to the transaction
-    if (records && Array.isArray(records)) {
-        for (const record of records) {
-            if (record.id) {
-                const { id: recordId, ...recordData } = record;
-                 // Ensure grade is number or null, not an empty string
-                if (recordData.grade === '') {
-                    recordData.grade = null;
-                }
-                transactionOperations.push(
-                    db.lessonRecord.update({
+        // 2. Update the records if provided
+        if (records && Array.isArray(records)) {
+            for (const record of records) {
+                if (record.id) {
+                    const { id: recordId, ...recordData } = record;
+                     // Ensure grade is number or null, not an empty string
+                    if (recordData.grade === '') {
+                        recordData.grade = null;
+                    }
+                    await tx.lessonRecord.update({
                         where: { id: recordId },
-                        data: recordData
-                    })
-                );
+                        data: recordData,
+                    });
+                }
             }
         }
-    }
-    
-    // Execute all updates in a single transaction
-    if (transactionOperations.length > 0) {
-        await db.$transaction(transactionOperations);
-    }
+    });
 
     const updatedLessonsWithRecords = await getLessonsWithRecords({ id });
     
