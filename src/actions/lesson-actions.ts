@@ -57,8 +57,8 @@ export async function getLessonsForSubject(subjectId: string, startDate?: string
 
     if (startDate && endDate) {
         whereClause.date = {
-            gte: new Date(startDate),
-            lte: new Date(endDate)
+            gte: startDate,
+            lte: endDate
         };
     }
     
@@ -80,8 +80,8 @@ export async function getLessonsForClass(classId: string, startDate?: string, en
 
     if (startDate && endDate) {
         whereClause.date = {
-            gte: new Date(startDate),
-            lte: new Date(endDate)
+            gte: startDate,
+            lte: endDate
         };
     }
     
